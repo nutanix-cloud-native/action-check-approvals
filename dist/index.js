@@ -23,6 +23,7 @@ async function getLastCommitHash(octokit, owner, repo, pull_number) {
     // Sort commits by date in ascending order
     // and get the last commit
     commits.data.sort((a, b) => new Date(a.commit.committer.date) - new Date(b.commit.committer.date));
+    console.log('Commits:', commits.data);
     const lastCommit = commits.data[commits.data.length - 1];
     return lastCommit.sha;
 }
