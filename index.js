@@ -1,6 +1,17 @@
 import { getInput, setFailed, setOutput } from '@actions/core';
 import { context as _context, getOctokit } from '@actions/github';
 
+async function getLastCommitTime(octokit, owner, repo, pull_number) {
+    const commits = await octokit.rest.pulls.listCommits({
+        owner,
+        repo,
+        pull_number,
+    });
+    const lastCommit = commits.data[commits.data.length - 1];
+    return new Date(lastCommit.commit.committer.date);
+}
+
+
 try {
     // `github.context` is the context of the workflow run
     const context = _context;
@@ -23,6 +34,9 @@ try {
         throw new Error('No pull request found in the context');
     }
 
+    // Get the last commit time
+    const lastCommitTime = await getLastCommitTime(octokit, context.repo.owner, context.repo.repo, prNumber);
+
     // Get PR reviews and store it in `reviews` variable
     const { data: reviews } = await octokit.rest.pulls.listReviews({
         owner: context.repo.owner,
@@ -31,7 +45,9 @@ try {
     });
 
     // Filter approved reviews
-    const approvedReviews = reviews.filter(review => review.state === 'APPROVED');
+    const approvedReviews = reviews.filter(review => review.state === 'APPROVED' && review.Date > lastCommitTime);
+    console.log('Approved reviews:', approvedReviews);
+
     const requiredApprovals = parseInt(getInput('review_approvals_count'), 10) || 1;
     const hasRequiredApprovals = approvedReviews.length >= requiredApprovals;
 
