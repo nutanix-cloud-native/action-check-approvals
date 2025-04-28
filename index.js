@@ -1,14 +1,14 @@
 import { getInput, setFailed, setOutput } from '@actions/core';
 import { context as _context, getOctokit } from '@actions/github';
 
-async function getLastCommitTime(octokit, owner, repo, pull_number) {
+async function getLastCommitHash(octokit, owner, repo, pull_number) {
     const commits = await octokit.rest.pulls.listCommits({
         owner,
         repo,
         pull_number,
     });
     const lastCommit = commits.data[commits.data.length - 1];
-    return new Date(lastCommit.commit.committer.date);
+    return lastCommit.sha;
 }
 
 
@@ -35,7 +35,7 @@ try {
     }
 
     // Get the last commit time
-    const lastCommitTime = await getLastCommitTime(octokit, context.repo.owner, context.repo.repo, prNumber);
+    const lastCommitHash = await getLastCommitHash(octokit, context.repo.owner, context.repo.repo, prNumber);
 
     // Get PR reviews and store it in `reviews` variable
     const { data: reviews } = await octokit.rest.pulls.listReviews({
@@ -45,7 +45,8 @@ try {
     });
 
     // Filter approved reviews
-    const approvedReviews = reviews.filter(review => review.state === 'APPROVED' && review.Date > lastCommitTime);
+    const approvedReviews = reviews.filter(review => review.state === 'APPROVED' && review.commit_id === lastCommitHash);
+    console.log('Last commit hash:', lastCommitHash);
     console.log('Approved reviews:', approvedReviews);
 
     const requiredApprovals = parseInt(getInput('review_approvals_count'), 10) || 1;
