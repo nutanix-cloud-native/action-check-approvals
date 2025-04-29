@@ -14,6 +14,21 @@ __nccwpck_require__.r(__webpack_exports__);
 
 
 
+async function getLastCommitHash(octokit, owner, repo, pull_number) {
+    const commits = await octokit.rest.pulls.listCommits({
+        owner,
+        repo,
+        pull_number,
+    });
+    // Sort commits by date in ascending order
+    // and get the last commit
+    commits.data.sort((a, b) => new Date(a.commit.committer.date) - new Date(b.commit.committer.date));
+    console.log('Commits:', commits.data);
+    const lastCommit = commits.data[commits.data.length - 1];
+    return lastCommit.sha;
+}
+
+
 try {
     // `github.context` is the context of the workflow run
     const context = _actions_github__WEBPACK_IMPORTED_MODULE_1__.context;
@@ -36,6 +51,9 @@ try {
         throw new Error('No pull request found in the context');
     }
 
+    // Get the last commit time
+    const lastCommitHash = await getLastCommitHash(octokit, context.repo.owner, context.repo.repo, prNumber);
+
     // Get PR reviews and store it in `reviews` variable
     const { data: reviews } = await octokit.rest.pulls.listReviews({
         owner: context.repo.owner,
@@ -44,7 +62,10 @@ try {
     });
 
     // Filter approved reviews
-    const approvedReviews = reviews.filter(review => review.state === 'APPROVED');
+    const approvedReviews = reviews.filter(review => review.state === 'APPROVED' && review.commit_id === lastCommitHash);
+    console.log('Last commit hash:', lastCommitHash);
+    console.log('Approved reviews:', approvedReviews);
+
     const requiredApprovals = parseInt((0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)('review_approvals_count'), 10) || 1;
     const hasRequiredApprovals = approvedReviews.length >= requiredApprovals;
 
